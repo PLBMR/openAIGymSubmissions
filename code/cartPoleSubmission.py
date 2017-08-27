@@ -90,7 +90,7 @@ class Agent:
             prevQVec = self.qFunc.gradQ(self.prevState,self.prevAction,
                                         self.weightVec)
             self.weightVec = (self.weightVec 
-                + alpha * (self.reward + self.gamma * nextQVal - prevQVal) 
+                + self.alpha * (self.reward + self.gamma * nextQVal - prevQVal) 
                 * prevQVec)
             #store our next and previous action
             self.prevState = self.nextState
@@ -123,7 +123,7 @@ class AgentEnvironmentInteraction:
         self.agent.prevAction = self.agent.chooseAction(self.agent.prevState)
         while (not(done)): #run a step
             episodeLength += 1
-            self.env.render()
+            #self.env.render()
             nextState, nextReward, done, _ = self.env.step(
                                                         self.agent.prevAction)
             totalReward += nextReward
@@ -153,8 +153,8 @@ if __name__ == "__main__":
     epsilon = .1
     alpha = 1
     gamma = .9
-    newInteraction = AgentEnvironmentInteraction("CartPole-v0",alpha,epsilon,
-                                                 gamma,linearBasisFunc,
+    newInteraction = AgentEnvironmentInteraction("CartPole-v0",alpha,gamma,
+                                                 epsilon,linearBasisFunc,
                                                  "../submission/cp-e-5")
     newInteraction.performMultipleEpisodes(20000)
     newInteraction.env.close()
