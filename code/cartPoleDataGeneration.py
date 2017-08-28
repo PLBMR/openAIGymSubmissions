@@ -19,19 +19,23 @@ if __name__ == "__main__":
     for e in epsilonVec:
         for a in alphaVec:
             for g in gammaVec:
-                modelDict[index] = {"epsilon":e,"alpha":a,"gamma":g}
-                #perform run
-                newInteraction = cps.AgentEnvironmentInteraction("CartPole-v0",
-                                                    a,g,e,cps.linearBasisFunc)
-                newInteraction.performMultipleEpisodes(numEpisodes)
-                #then extract results
-                episodeLengthVec = newInteraction.episodeLengthVec
-                rewardVec = newInteraction.episodeRewardVec
-                #then store
-                episodeLengthDict[index] = episodeLengthVec
-                rewardDict[index] = rewardVec
-                index += 1
+                numRuns = 1
+                for run in range(numRuns):
+                    modelDict[index] = {"epsilon":e,"alpha":a,"gamma":g}
+                    #perform run
+                    newInteraction = cps.AgentEnvironmentInteraction(
+                                                "CartPole-v0",
+                                            a,g,e,cps.firstInteractionBasisFunc)
+                    newInteraction.performMultipleEpisodes(numEpisodes)
+                    #then extract results
+                    episodeLengthVec = newInteraction.episodeLengthVec
+                    rewardVec = newInteraction.episodeRewardVec
+                    #then store
+                    episodeLengthDict[index] = episodeLengthVec
+                    rewardDict[index] = rewardVec
+                    index += 1
     #then export
-    pkl.dump(modelDict,open("../data/raw/modelDict.pkl","wb"))
-    pkl.dump(episodeLengthDict,open("../data/raw/episodeLengthDict.pkl","wb"))
-    pkl.dump(rewardDict,open("../data/raw/rewardDict.pkl","wb"))
+    pkl.dump(modelDict,open("../data/raw/simpleModelDict.pkl","wb"))
+    pkl.dump(episodeLengthDict,open("../data/raw/simpleEpisodeLengthDict.pkl",
+                                    "wb"))
+    pkl.dump(rewardDict,open("../data/raw/simpleRewardDict.pkl","wb"))

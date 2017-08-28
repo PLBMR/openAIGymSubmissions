@@ -7,6 +7,7 @@ import numpy as np
 import gym
 import sys
 import random
+import scipy.misc as spm
 
 #helpers
 
@@ -21,6 +22,50 @@ def linearBasisFunc(stateVec,action):
         stateMulVec[(i * 2) + 1] = stateVec[i] * (1 - action)
     return stateMulVec
 
+def firstInteractionBasisFunc(stateVec,action):
+    #helper for generating a linear basis along with a basis of interactions
+    numStates = stateVec.shape[0]
+    numLinearObs = spm.comb(numStates,1) * 2
+    numInterObs = spm.comb(numStates,2) * 2
+    stateMulVec = np.zeros((numLinearObs + numInterObs).astype("int"))
+    intIndexLookup = {(0,1):0,(0,2):2,(0,3):4,(1,2):6,(1,3):8,(2,3):10}
+    #first get linear component
+    for i in range(numStates):
+        stateMulVec[(i * 2)] = stateVec[i] * action
+        stateMulVec[(i * 2) + 1] = stateVec[i] * (1 - action)
+    #then get interaction component
+    for i in range(numStates):
+        for j in range(i+1,numStates):
+            stateLookup = (numLinearObs + intIndexLookup[(i,j)]).astype("int")
+            stateMulVec[stateLookup] = stateVec[i] * stateVec[j] * action
+            stateMulVec[stateLookup + 1] = (stateVec[i]*stateVec[j]*(1-action))
+    return stateMulVec
+
+def firstIntWithPolynomials(stateVec,action):
+    #helper for generating a linear basis along with a basis of interactions and
+    #second degree polynomials
+    numStates = stateVec.shape[0]
+    numLinearObs = numPolyObs = spm.comb(numStates,1) * 2
+    numInterObs = spm.comb(numStates,2) * 2
+    stateMulVec = np.zeros((numLinearObs + numInterObs + numPolyObs).astype(
+                                                                        "int"))
+    intIndexLookup = {(0,1):0,(0,2):2,(0,3):4,(1,2):6,(1,3):8,(2,3):10}
+    #first get linear component
+    for i in range(numStates):
+        stateMulVec[(i * 2)] = stateVec[i] * action
+        stateMulVec[(i * 2) + 1] = stateVec[i] * (1 - action)
+    #then get interaction component
+    for i in range(numStates):
+        for j in range(i+1,numStates):
+            stateLookup = (numLinearObs + intIndexLookup[(i,j)]).astype("int")
+            stateMulVec[stateLookup] = stateVec[i] * stateVec[j] * action
+            stateMulVec[stateLookup + 1] = (stateVec[i]*stateVec[j]*(1-action))
+    #then get first degree polynomials
+    stateStart = (numLinearObs + numInterObs).astype("int")
+    for i in range(numStates):
+        stateMulVec[stateStart+(i * 2)] = (stateVec[i]**2) * action
+        stateMulVec[stateStart+(i * 2) + 1] = (stateVec[i]**2) * (1 - action)
+    return stateMulVec
 #classes
 
 class LinearQFunc:
@@ -104,7 +149,22 @@ class AgentEnvironmentInteraction:
         self.env = gym.make(gameName)
         if (type(monitorFilename) != type(None)):
             self.env = gym.wrappers.Monitor(self.env,monitorFilename)
-        initWeightVec = np.zeros(len(self.env.observation_space.high) * 2)
+        #choose initial weights
+        if basisFunc == linearBasisFunc:
+            initWeightVec = np.zeros(len(self.env.observation_space.high) * 2)
+        elif basisFunc == firstInteractionBasisFunc: #interaction one
+            observationSpaceSize = len(self.env.observation_space.high)
+            numLinearTerms = observationSpaceSize * 2
+            numInteractionTerms = spm.comb(observationSpaceSize,2) * 2
+            numTerms = (numLinearTerms + numInteractionTerms).astype("int")
+            initWeightVec = np.zeros(numTerms)
+        else: #with polynomials
+            observationSpaceSize = len(self.env.observation_space.high)
+            numLinearTerms = numPolyTerms = observationSpaceSize * 2
+            numInteractionTerms = spm.comb(observationSpaceSize,2) * 2
+            numTerms = (numLinearTerms + numInteractionTerms 
+                        + numPolyTerms).astype("int")
+            initWeightVec = np.zeros(numTerms)
         actionSet = set(range(self.env.action_space.n))
         self.agent = Agent(actionSet,initWeightVec,alpha,gamma,epsilon,basisFunc
                           )
@@ -143,19 +203,20 @@ if __name__ == "__main__":
     #apiKey = sys.argv[1]
     #numEpisodes = sys.argv[2]
     #tests
-    stateVec = np.array([1,2,3,4])
-    action = 1
-    print linearBasisFunc(stateVec,action)
-    testQ = LinearQFunc(linearBasisFunc)
-    weightVec = np.array([0,0,0,0,1,1,1,1])
-    print testQ.q(stateVec,action,weightVec)
-    print testQ.gradQ(stateVec,action,weightVec)
-    epsilon = .1
-    alpha = 1
-    gamma = .9
+    #stateVec = np.array([1,2,3,4])
+    #action = 1
+    #print firstIntWithPolynomials(stateVec,action)
+    #testQ = LinearQFunc(linearBasisFunc)
+    #weightVec = np.array([0,0,0,0,1,1,1,1])
+    #print testQ.q(stateVec,action,weightVec)
+    #print testQ.gradQ(stateVec,action,weightVec)
+    epsilon = .001
+    alpha = .5
+    gamma = 1
     newInteraction = AgentEnvironmentInteraction("CartPole-v0",alpha,gamma,
-                                                 epsilon,linearBasisFunc,
-                                                 "../submission/cp-e-5")
-    newInteraction.performMultipleEpisodes(20000)
+                                                 epsilon,
+                                                 firstInteractionBasisFunc,
+                                                 "../submission/cp-e-16")
+    newInteraction.performMultipleEpisodes(800)
     newInteraction.env.close()
-    gym.upload("../submission/cp-e-5",api_key = sys.argv[1])
+    gym.upload("../submission/cp-e-16",api_key = sys.argv[1])
